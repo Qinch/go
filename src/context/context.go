@@ -267,6 +267,7 @@ func propagateCancel(parent Context, child canceler) {
 			// parent has already been canceled
 			child.cancel(false, p.err)
 		} else {
+			// 将child添加到最近的祖先cancelCtx的child中
 			if p.children == nil {
 				p.children = make(map[canceler]struct{})
 			}
@@ -277,6 +278,7 @@ func propagateCancel(parent Context, child canceler) {
 		atomic.AddInt32(&goroutines, +1)
 		go func() {
 			select {
+			// 如果最近的祖先节点不是cancelCtx, 而是自己封装的canceler， 则监听Done signal
 			case <-parent.Done():
 				child.cancel(false, parent.Err())
 			case <-child.Done():
@@ -295,6 +297,7 @@ var cancelCtxKey int
 // has been wrapped in a custom implementation providing a
 // different done channel, in which case we should not bypass it.)
 func parentCancelCtx(parent Context) (*cancelCtx, bool) {
+	// 获取最近的祖先的done channel
 	done := parent.Done()
 	if done == closedchan || done == nil {
 		return nil, false
@@ -314,6 +317,7 @@ func parentCancelCtx(parent Context) (*cancelCtx, bool) {
 
 // removeChild removes a context from its parent.
 func removeChild(parent Context, child canceler) {
+	// 找到最近的祖先cancelCtx
 	p, ok := parentCancelCtx(parent)
 	if !ok {
 		return
@@ -335,6 +339,7 @@ type canceler interface {
 // closedchan is a reusable closed channel.
 var closedchan = make(chan struct{})
 
+// 由于done cahnnel created lazily, 所以可能存在：没有调用Done(), 但是调用了cancelFunc, 所以需要closeChan
 func init() {
 	close(closedchan)
 }
